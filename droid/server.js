@@ -1,3 +1,5 @@
+// ...existing code...
+
 const mongoose = require("mongoose");
 const PhishingClick = require("./models/PhishingClick");
 const CapturedCredential = require("./models/CapturedCredential");
@@ -16,7 +18,10 @@ const cheerio = require("cheerio");
 const path = require("path"); // ✅ Needed to serve React build
 const fs = require("fs"); // Added to check if build exists
 
+const ENV_PATH = path.join(__dirname, ".env");
+
 const app = express();
+// (update-base-url endpoint moved below after requireAuth is declared)
 // Trust first proxy (needed for secure cookies behind proxies like ngrok)
 app.set("trust proxy", 1);
 app.use(express.static("public"));
@@ -40,9 +45,9 @@ app.use(
   }),
 );
 
-// CORS setup: allow ngrok and localhost origins from .env
+// CORS setup: allow only specific origins and always set credentials: true
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
+  ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
   : [
       "http://localhost:3000",
       "http://localhost:5000",
@@ -51,12 +56,13 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
     ];
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-      return callback(new Error(msg), false);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"), false);
     }
-    return callback(null, true);
   },
   credentials: true,
 }));
@@ -75,6 +81,31 @@ const requireAuth = (req, res, next) => {
     res.status(401).json({ error: "Authentication required" });
   }
 };
+
+// API endpoint to update BASE_URL in .env (authenticated)
+app.post("/api/update-base-url", requireAuth, async (req, res) => {
+  const { baseUrl } = req.body;
+  if (!baseUrl || typeof baseUrl !== "string") {
+    return res.status(400).json({ error: "baseUrl is required" });
+  }
+  try {
+    // Read .env file
+    let envContent = fs.readFileSync(ENV_PATH, "utf8");
+    // Replace or add BASE_URL line
+    if (/^BASE_URL\s*=.*/m.test(envContent)) {
+      envContent = envContent.replace(/^BASE_URL\s*=.*/m, `BASE_URL=${baseUrl}`);
+    } else {
+      envContent += `\nBASE_URL=${baseUrl}`;
+    }
+    fs.writeFileSync(ENV_PATH, envContent, "utf8");
+    // Also update process.env for immediate effect
+    process.env.BASE_URL = baseUrl;
+    res.json({ message: "BASE_URL updated successfully" });
+  } catch (err) {
+    console.error("Failed to update BASE_URL in .env", err);
+    res.status(500).json({ error: "Failed to update BASE_URL" });
+  }
+});
 
 // Users database (in production, use proper database)
 const users = {
@@ -190,11 +221,17 @@ app.post("/send-phishing-email", requireAuth, async (req, res) => {
       `;
     }
 
+    // If content looks like escaped HTML, decode it
+    if (typeof emailContent === "string" && emailContent.includes("&lt;") && emailContent.includes("&gt;")) {
+      emailContent = emailContent.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    }
+    // If content looks like full HTML, send as HTML. If not, wrap in <pre> for debugging (should not happen in production)
+    const isHtml = /<\s*html[\s>]/i.test(emailContent) || /<\s*body[\s>]/i.test(emailContent) || /<\w+.*?>/.test(emailContent);
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: recipientEmail,
       subject: emailSubject,
-      html: emailContent,
+      html: isHtml ? emailContent : `<pre>${emailContent}</pre>`
     };
 
     await transporter.sendMail(mailOptions);

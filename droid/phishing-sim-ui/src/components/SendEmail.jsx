@@ -12,6 +12,7 @@ const SendEmail = () => {
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [loading, setLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [ngrokUrl, setNgrokUrl] = useState("");
 
   // Fetch templates on mount
   useEffect(() => {
@@ -37,10 +38,33 @@ const SendEmail = () => {
     setLoading(true);
     setMessage("");
 
-    console.log("Sending email to:", email);
+    // 1. Update BASE_URL in backend if ngrokUrl is provided
+    if (ngrokUrl && ngrokUrl.trim() !== "") {
+      try {
+        const updateRes = await fetch("/api/update-base-url", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ baseUrl: ngrokUrl.trim() }),
+        });
+        if (!updateRes.ok) {
+          const errData = await updateRes.json();
+          setMessage("❌ Failed to update BASE_URL: " + (errData.error || updateRes.status));
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        setMessage("❌ Network error updating BASE_URL");
+        setLoading(false);
+        return;
+      }
+    }
 
+    // 2. Send phishing email as before
     try {
-      const response = await fetch(`${API_BASE}/send-phishing-email`, {
+      const response = await fetch("/send-phishing-email", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -49,12 +73,8 @@ const SendEmail = () => {
         body: JSON.stringify({ recipientEmail: email, templateId: selectedTemplate }),
       });
 
-      console.log("Send email response status:", response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Send email failed:", errorText);
-
+        await response.text(); // consume for completeness, but don't use
         if (response.status === 401) {
           setMessage("❌ Authentication required. Please login again.");
         } else {
@@ -63,13 +83,11 @@ const SendEmail = () => {
         return;
       }
 
-      const data = await response.json();
-      console.log("Send email success:", data);
-
+      await response.json();
       setMessage("✅ Email sent successfully!");
-      setEmail(""); // Clear the input on success
+      setEmail("");
+      setSelectedTemplate("");
     } catch (error) {
-      console.error("Send email network error:", error);
       setMessage(`❌ Network Error: ${error.message}`);
     } finally {
       setLoading(false);
@@ -178,7 +196,6 @@ const SendEmail = () => {
         "linear-gradient(135deg, #00f5ff 0%, #0080ff 50%, #8338ec 100%)",
       WebkitBackgroundClip: "text",
       WebkitTextFillColor: "transparent",
-      backgroundClip: "text",
       marginBottom: "12px",
       letterSpacing: "-0.02em",
     },
@@ -267,9 +284,6 @@ const SendEmail = () => {
     },
     buttonHover: {
       transform: "translateY(-3px)",
-      boxShadow: "0 20px 40px rgba(0, 245, 255, 0.4)",
-      background:
-        "linear-gradient(135deg, #0080ff 0%, #00f5ff 50%, #8338ec 100%)",
     },
     loadingSpinner: {
       display: "inline-block",

@@ -20,6 +20,7 @@ const EmailTemplates = () => {
   const [loading, setLoading] = useState(false);
   const [activeCard, setActiveCard] = useState(null);
   const [editId, setEditId] = useState(null); // null when creating, id when editing
+  const [rawHtmlMode, setRawHtmlMode] = useState(false);
 
   const templateOptions = [
     {
@@ -69,7 +70,8 @@ const EmailTemplates = () => {
     setFormData({ ...formData, content: draftToHtml(raw) });
   };
 
-  const fetchTemplates = React.useCallback(async () => {
+  // Fetch templates from API
+  const fetchTemplates = async (setTemplates, setMessage) => {
     try {
       const response = await fetch("/api/email-templates", {
         credentials: "include",
@@ -84,6 +86,15 @@ const EmailTemplates = () => {
       console.error("Error fetching templates:", error);
       setMessage("❌ Error loading templates");
     }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchTemplates(
+      (data) => { if (isMounted) setTemplates(data); },
+      (msg) => { if (isMounted) setMessage(msg); }
+    );
+    return () => { isMounted = false; };
   }, []);
 
   // Fetch templates on component mount
@@ -102,10 +113,6 @@ const EmailTemplates = () => {
     setEditId(tpl._id);
     setShowForm(true);
   };
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
 
   // Ensure login page is always present in templateOptions and matches saved templates list
   useEffect(() => {
@@ -158,7 +165,7 @@ const EmailTemplates = () => {
         setFormData({ name: "", subject: "", content: "" });
         setEditId(null);
         setShowForm(false);
-        fetchTemplates(); // Refresh the list
+        fetchTemplates(setTemplates, setMessage); // Refresh the list
       } else {
         const errorData = await response.json();
         setMessage(
@@ -194,7 +201,7 @@ const EmailTemplates = () => {
           `✅ ${selectedTemplates.length} template(s) deleted successfully!`,
         );
         setSelectedTemplates([]);
-        fetchTemplates(); // Refresh the list
+        fetchTemplates(setTemplates, setMessage); // Refresh the list
       } else {
         setMessage("❌ Failed to delete templates");
       }
@@ -568,6 +575,14 @@ const EmailTemplates = () => {
     </tr>
   );
 
+  // Helper to replace placeholders with sample values for preview
+  function replacePlaceholders(html) {
+    return html
+      .replace(/{{\.?LastName}}/g, "Smith")
+      .replace(/{{\.?URL}}/g, "https://example.com/bulletin")
+      .replace(/{{verification_link}}/g, "https://example.com/verify");
+  }
+
   return (
     <>
       <style>{`
@@ -726,7 +741,15 @@ const EmailTemplates = () => {
                       <td style={styles.td}>{template.subject}</td>
                       <td style={styles.td}>
                         <div style={styles.templateContent}>
-                          {template.content.replace(/<[^>]*>/g, "")}
+                          {(function cleanPreview(html) {
+                            if (!html) return '';
+                            // Unescape HTML entities
+                            const txt = document.createElement('textarea');
+                            txt.innerHTML = html;
+                            const unescaped = txt.value;
+                            // Remove tags and trim
+                            return unescaped.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) + (unescaped.length > 120 ? '...' : '');
+                          })(template.content)}
                         </div>
                       </td>
                       <td style={styles.td}>
@@ -816,38 +839,61 @@ const EmailTemplates = () => {
                     />
                   </div>
 
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontWeight: 500, marginRight: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={rawHtmlMode}
+                        onChange={e => setRawHtmlMode(e.target.checked)}
+                        style={{ marginRight: 6 }}
+                      />
+                      Raw HTML Mode
+                    </label>
+                    <span style={{ color: '#888', fontSize: 13 }}>
+                      (Paste full HTML for advanced templates)
+                    </span>
+                  </div>
                   <div style={styles.inputGroup}>
                     <label style={styles.label}>Email Content</label>
-                    <Editor
-                      editorState={editorState}
-                      toolbar={{
-                        options: [
-                          "inline",
-                          "blockType",
-                          "list",
-                          "link",
-                          "history",
-                        ],
-                        inline: { inDropdown: false },
-                      }}
-                      wrapperStyle={{
-                        border: "1px solid #444",
-                        borderRadius: 6,
-                      }}
-                      editorStyle={{
-                        minHeight: 200,
-                        padding: 10,
-                        background: "#fff",
-                        color: "#000",
-                      }}
-                      onEditorStateChange={(state) => {
-                        setEditorState(state);
-                        const html = draftToHtml(
-                          convertToRaw(state.getCurrentContent()),
-                        );
-                        setFormData({ ...formData, content: html });
-                      }}
-                    />
+                    {rawHtmlMode ? (
+                      <textarea
+                        style={{ ...styles.input, minHeight: 200, fontFamily: 'monospace', background: '#fff', color: '#000' }}
+                        value={formData.content}
+                        onChange={e => setFormData({ ...formData, content: e.target.value })}
+                        placeholder="Paste your full HTML email here"
+                      />
+                    ) : (
+                      <Editor
+                        editorState={editorState}
+                        toolbar={{
+                          options: [
+                            "inline",
+                            "blockType",
+                            "list",
+                            "link",
+                            "history",
+                          ],
+                          inline: { inDropdown: false },
+                        }}
+                        wrapperStyle={{
+                          border: "1px solid #444",
+                          borderRadius: 6,
+                        }}
+                        editorStyle={{
+                          minHeight: 200,
+                          padding: 10,
+                          background: "#fff",
+                          color: "#000",
+                        }}
+                        onEditorStateChange={state => {
+                          setEditorState(state);
+                          const html = draftToHtml(
+                            convertToRaw(state.getCurrentContent())
+                          );
+                          setFormData({ ...formData, content: html });
+                        }}
+                      />
+                    )}
                     {/* HTML Preview for Email Content */}
                     <div style={{
                       marginTop: 16,
@@ -861,7 +907,12 @@ const EmailTemplates = () => {
                         <iframe
                           title="HTML Content Preview"
                           style={{ width: "100%", minHeight: 100, border: "none" }}
-                          srcDoc={formData.content.startsWith('<') ? formData.content : draftToHtml(convertToRaw(editorState.getCurrentContent()))}
+                          srcDoc={(function unescapeHtml(html) {
+                            if (!html) return '';
+                            const txt = document.createElement('textarea');
+                            txt.innerHTML = replacePlaceholders(html);
+                            return txt.value;
+                          })(formData.content)}
                         />
                       </div>
                     </div>
@@ -911,9 +962,19 @@ const EmailTemplates = () => {
                     >
                       <iframe
                         title="Template Preview"
-                        src={templateOptions.find(
-                          (opt) => opt.value === selectedTemplate,
-                        ).preview}
+                        src={(() => {
+                          const previewPath = templateOptions.find(
+                            (opt) => opt.value === selectedTemplate
+                          )?.preview;
+                          if (!previewPath) return '';
+                          // If previewPath is an absolute URL, use as is
+                          if (/^https?:\/\//.test(previewPath)) return previewPath;
+                          // Otherwise, build absolute URL based on current backend
+                          const base = window.location.origin.includes('localhost')
+                            ? 'http://localhost:5000'
+                            : window.location.origin;
+                          return base + previewPath;
+                        })()}
                         style={{
                           width: "100%",
                           minHeight: 400,

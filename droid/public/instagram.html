@@ -1,52 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="robots" content="noindex, nofollow" />
-  <meta charset="UTF-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instagram</title>
-  <link rel="icon" type="image/png" href="images/instagram.png" />
-</head>
-<body style="background: #fafafa;">
-  <div style="background: #fff3cd; color: #856404; text-align: center; padding: 10px; font-size: 14px; font-weight: 500; border-bottom: 1px solid #ffeeba;">
-    This page is part of a <strong>simulated phishing campaign for educational purposes only</strong>. No real credentials are being collected.
-  </div>
-  <div class="container" style="max-width: 350px; margin: 40px auto; background: #fff; border: 1px solid #dbdbdb; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-    <form onsubmit="handleSubmit(event)" name="logonForm" autocomplete="off" style="padding: 40px 40px 24px 40px;">
-      <img src="images/instagram_logo.png" alt="Instagram logo" style="display:block;margin:0 auto 24px auto;width:175px;" />
-      <div class="form-group">
-        <input type="text" name="UsernameForm" placeholder="Phone number, username, or email" required style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #dbdbdb;border-radius:4px;" />
-      </div>
-      <div class="form-group">
-        <input type="password" name="password" placeholder="Password" required style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #dbdbdb;border-radius:4px;" />
-      </div>
-      <button type="submit" style="width:100%;background:#0095f6;color:#fff;padding:10px;border:none;border-radius:4px;font-weight:600;">Log In</button>
-      <div style="text-align:center;margin:16px 0 0 0;font-size:13px;">
-        <a href="#" style="color:#00376b;">Forgot password?</a>
-      </div>
-    </form>
-  </div>
-  <script>
-    if (self !== top) { top.location = self.location; }
-    let submitted = false;
-    function handleSubmit(event) {
-      event.preventDefault();
-      if (submitted) return;
-      submitted = true;
-      const email = document.querySelector('input[name="UsernameForm"]').value;
-      const password = document.querySelector('input[name="password"]').value;
-      fetch("/submit-credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email, password })
-      }).finally(() => {
-        window.location.href = "/post-campaign";
-      });
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <style>
+    body {
+      background: #fafafa;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
     }
-  </script>
+    .insta-container {
+      max-width: 350px;
+      margin: 60px auto 0 auto;
+      background: #fff;
+      border: 1px solid #dbdbdb;
+      border-radius: 8px;
+      padding: 40px 40px 24px 40px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .insta-logo {
+      display: block;
+      margin: 0 auto 30px auto;
+      width: 175px;
+      height: 51px;
+      background: url('https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png') no-repeat center/contain;
+    }
+    .insta-form input {
+      margin-bottom: 10px;
+      border-radius: 3px;
+      border: 1px solid #dbdbdb;
+      background: #fafafa;
+      font-size: 14px;
+      width: 100%;
+      padding: 10px;
+    }
+    .insta-btn {
+      width: 100%;
+      background: #3897f0;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 0;
+      font-weight: 600;
+      font-size: 16px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    .insta-or {
+      text-align: center;
+      color: #999;
+      margin: 18px 0 18px 0;
+      position: relative;
+    }
+    .insta-or:before, .insta-or:after {
+      content: '';
+      display: inline-block;
+      width: 40%;
+      height: 1px;
+      background: #dbdbdb;
+      vertical-align: middle;
+      margin: 0 8px;
+    }
+    .insta-fb {
+      color: #385185;
+      font-weight: 600;
+      text-align: center;
+      display: block;
+      margin-bottom: 12px;
+    }
+    .insta-forgot {
+      text-align: center;
+      color: #00376b;
+      font-size: 13px;
+      margin-bottom: 18px;
+      display: block;
+    }
+    .insta-signup {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 14px;
+      color: #262626;
+    }
+    .insta-signup a {
+      color: #3897f0;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .insta-footer {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="insta-container">
+    <div class="insta-logo"></div>
+    <form class="insta-form">
+      <input type="text" placeholder="Phone number, username or email address" required>
+      <input type="password" placeholder="Password" required>
+      <button class="insta-btn" type="submit">Log in</button>
+    </form>
+    <div class="insta-or">OR</div>
+    <a href="#" class="insta-fb"><span class="glyphicon glyphicon-facebook"></span> Log in with Facebook</a>
+    <a href="#" class="insta-forgot">Forgotten your password?</a>
+    <div class="insta-signup">
+      Don't have an account? <a href="#">Sign up</a>
+    </div>
+  </div>
+  <div class="insta-footer">
+    &copy; 2025 Instagram from Meta
+  </div>
 </body>
 </html>
